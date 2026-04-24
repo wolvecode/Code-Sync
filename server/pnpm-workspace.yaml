@@ -1,0 +1,6 @@
+onlyBuiltDependencies:
+  - cors
+
+nodeLinker: hoisted
+
+sideEffectsCache: false
