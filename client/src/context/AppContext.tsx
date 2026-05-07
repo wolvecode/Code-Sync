@@ -24,6 +24,7 @@ function AppContextProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<User>({
         username: "",
         roomId: "",
+        isAdmin: false,
     })
     const [activityState, setActivityState] = useState<ACTIVITY_STATE>(
         ACTIVITY_STATE.CODING,

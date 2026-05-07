@@ -1,5 +1,6 @@
 import { ChatContext as ChatContextType, ChatMessage } from "@/types/chat"
 import { SocketEvent } from "@/types/socket"
+import { formatDate } from "@/utils/formateDate"
 import {
     ReactNode,
     createContext,
@@ -33,8 +34,33 @@ function ChatContextProvider({ children }: { children: ReactNode }) {
                 setIsNewMessage(true)
             },
         )
+
+        socket.on(
+            SocketEvent.RECEIVE_BROADCAST,
+            ({
+                id,
+                text,
+                timestamp,
+            }: {
+                id: string
+                text: string
+                timestamp: string
+            }) => {
+                const message: ChatMessage = {
+                    id,
+                    kind: "broadcast",
+                    message: text,
+                    username: "System",
+                    timestamp: formatDate(timestamp),
+                }
+                setMessages((messages) => [...messages, message])
+                setIsNewMessage(true)
+            },
+        )
+
         return () => {
             socket.off(SocketEvent.RECEIVE_MESSAGE)
+            socket.off(SocketEvent.RECEIVE_BROADCAST)
         }
     }, [socket])
 

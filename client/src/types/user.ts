@@ -6,6 +6,7 @@ enum USER_CONNECTION_STATUS {
 interface User {
     username: string
     roomId: string
+    isAdmin?: boolean
 }
 
 interface RemoteUser extends User {

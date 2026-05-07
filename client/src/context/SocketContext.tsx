@@ -79,6 +79,24 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         [setCurrentUser, setStatus, setUsers],
     )
 
+    const handleAdminUpdated = useCallback(
+        ({ adminSocketId }: { adminSocketId: SocketId | null }) => {
+            // server uses socketId as admin identity
+            setUsers((prev) =>
+                prev.map((u) => ({
+                    ...u,
+                    isAdmin: adminSocketId ? u.socketId === adminSocketId : false,
+                })),
+            )
+            if (!adminSocketId) {
+                setCurrentUser((u) => ({ ...u, isAdmin: false }))
+                return
+            }
+            setCurrentUser((u) => ({ ...u, isAdmin: socket.id === adminSocketId }))
+        },
+        [setCurrentUser, setUsers, socket.id],
+    )
+
     const handleUserLeft = useCallback(
         ({ user }: { user: User }) => {
             toast.success(`${user.username} left the room`)
@@ -107,6 +125,7 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         socket.on(SocketEvent.USERNAME_EXISTS, handleUsernameExist)
         socket.on(SocketEvent.JOIN_ACCEPTED, handleJoiningAccept)
         socket.on(SocketEvent.USER_DISCONNECTED, handleUserLeft)
+        socket.on(SocketEvent.ADMIN_UPDATED, handleAdminUpdated)
         socket.on(SocketEvent.REQUEST_DRAWING, handleRequestDrawing)
         socket.on(SocketEvent.SYNC_DRAWING, handleDrawingSync)
 
@@ -116,6 +135,7 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
             socket.off(SocketEvent.USERNAME_EXISTS)
             socket.off(SocketEvent.JOIN_ACCEPTED)
             socket.off(SocketEvent.USER_DISCONNECTED)
+            socket.off(SocketEvent.ADMIN_UPDATED)
             socket.off(SocketEvent.REQUEST_DRAWING)
             socket.off(SocketEvent.SYNC_DRAWING)
         }
@@ -123,6 +143,7 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         handleDrawingSync,
         handleError,
         handleJoiningAccept,
+        handleAdminUpdated,
         handleRequestDrawing,
         handleUserLeft,
         handleUsernameExist,

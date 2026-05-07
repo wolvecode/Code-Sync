@@ -14,7 +14,7 @@ interface AppContext {
         users: RemoteUser[] | ((users: RemoteUser[]) => RemoteUser[]),
     ) => void
     currentUser: User
-    setCurrentUser: (user: User) => void
+    setCurrentUser: (user: User | ((user: User) => User)) => void
     status: USER_STATUS
     setStatus: (status: USER_STATUS) => void
     activityState: ACTIVITY_STATE

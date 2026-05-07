@@ -41,25 +41,31 @@ function ChatList() {
         >
             {/* Chat messages */}
             {messages.map((message, index) => {
+                const isBroadcast = message.kind === "broadcast"
                 return (
                     <div
                         key={index}
                         className={
-                            "mb-2 w-[80%] self-end break-words rounded-md bg-dark px-3 py-2" +
-                            (message.username === currentUser.username
+                            (isBroadcast
+                                ? "mb-2 w-full break-words rounded-md border border-primary/50 bg-dark px-3 py-2"
+                                : "mb-2 w-[80%] self-end break-words rounded-md bg-dark px-3 py-2") +
+                            (!isBroadcast &&
+                            message.username === currentUser.username
                                 ? " ml-auto "
                                 : "")
                         }
                     >
                         <div className="flex justify-between">
                             <span className="text-xs text-primary">
-                                {message.username}
+                                {isBroadcast ? "Broadcast" : message.username}
                             </span>
                             <span className="text-xs text-white">
                                 {message.timestamp}
                             </span>
                         </div>
-                        <p className="py-1">{message.message}</p>
+                        <p className={isBroadcast ? "py-1 font-semibold" : "py-1"}>
+                            {message.message}
+                        </p>
                     </div>
                 )
             })}

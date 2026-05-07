@@ -3,6 +3,7 @@ interface ChatMessage {
     message: string
     username: string
     timestamp: string
+    kind?: "user" | "broadcast"
 }
 
 interface ChatContext {
