@@ -13,6 +13,7 @@ interface User {
 	socketId: string
 	selectionStart?: number
 	selectionEnd?: number
+	isAdmin?: boolean
 }
 
 export { USER_CONNECTION_STATUS, User }

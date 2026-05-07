@@ -27,6 +27,9 @@ const io = new Server(server, {
 })
 
 let userSocketMap: User[] = []
+const roomAdminMap = new Map<string, SocketId>()
+
+const BROADCAST_MAX_LEN = 300
 
 // Function to get all users in a room
 function getUsersInRoom(roomId: string): User[] {
@@ -55,6 +58,21 @@ function getUserBySocketId(socketId: SocketId): User | null {
 	return user
 }
 
+function setRoomAdmin(roomId: string, adminSocketId: SocketId | null) {
+	if (!adminSocketId) {
+		roomAdminMap.delete(roomId)
+	} else {
+		roomAdminMap.set(roomId, adminSocketId)
+	}
+
+	userSocketMap = userSocketMap.map((u) => {
+		if (u.roomId !== roomId) return u
+		return { ...u, isAdmin: u.socketId === adminSocketId }
+	})
+
+	io.to(roomId).emit(SocketEvent.ADMIN_UPDATED, { adminSocketId })
+}
+
 io.on("connection", (socket) => {
 	// Handle user actions
 	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username }) => {
@@ -67,6 +85,7 @@ io.on("connection", (socket) => {
 			return
 		}
 
+		const existingAdmin = roomAdminMap.get(roomId)
 		const user = {
 			username,
 			roomId,
@@ -75,12 +94,22 @@ io.on("connection", (socket) => {
 			typing: false,
 			socketId: socket.id,
 			currentFile: null,
+			isAdmin: !existingAdmin,
 		}
 		userSocketMap.push(user)
 		socket.join(roomId)
 		socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
 		const users = getUsersInRoom(roomId)
 		io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+
+		if (!existingAdmin) {
+			setRoomAdmin(roomId, socket.id)
+		} else {
+			// keep others up-to-date if they joined after admin existed
+			io.to(roomId).emit(SocketEvent.ADMIN_UPDATED, {
+				adminSocketId: existingAdmin,
+			})
+		}
 	})
 
 	socket.on("disconnecting", () => {
@@ -92,6 +121,12 @@ io.on("connection", (socket) => {
 			.emit(SocketEvent.USER_DISCONNECTED, { user })
 		userSocketMap = userSocketMap.filter((u) => u.socketId !== socket.id)
 		socket.leave(roomId)
+
+		const adminSocketId = roomAdminMap.get(roomId)
+		if (adminSocketId === socket.id) {
+			const nextAdmin = getUsersInRoom(roomId)[0]?.socketId ?? null
+			setRoomAdmin(roomId, nextAdmin)
+		}
 	})
 
 	// Handle file actions
@@ -209,6 +244,46 @@ io.on("connection", (socket) => {
 			.to(roomId)
 			.emit(SocketEvent.RECEIVE_MESSAGE, { message })
 	})
+
+	socket.on(
+		SocketEvent.BROADCAST_MESSAGE,
+		({ text }: { text?: string }) => {
+			const roomId = getRoomId(socket.id)
+			if (!roomId) return
+
+			const adminSocketId = roomAdminMap.get(roomId)
+			if (!adminSocketId || adminSocketId !== socket.id) {
+				io.to(socket.id).emit(SocketEvent.BROADCAST_ERROR, {
+					message: "Only the admin can send broadcast messages.",
+				})
+				return
+			}
+
+			const trimmed = (text ?? "").trim()
+			if (trimmed.length === 0) {
+				io.to(socket.id).emit(SocketEvent.BROADCAST_ERROR, {
+					message: "Broadcast message cannot be empty.",
+				})
+				return
+			}
+			if (trimmed.length > BROADCAST_MAX_LEN) {
+				io.to(socket.id).emit(SocketEvent.BROADCAST_ERROR, {
+					message: `Broadcast message is too long (max ${BROADCAST_MAX_LEN} characters).`,
+				})
+				return
+			}
+
+			const payload = {
+				id: `${Date.now()}-${socket.id}`,
+				text: trimmed,
+				timestamp: new Date().toISOString(),
+				adminSocketId,
+			}
+
+			console.log("[broadcast]", roomId, payload)
+			io.to(roomId).emit(SocketEvent.RECEIVE_BROADCAST, payload)
+		},
+	)
 
 	// Handle cursor position and selection
 	socket.on(SocketEvent.TYPING_START, ({ cursorPosition, selectionStart, selectionEnd }) => {
